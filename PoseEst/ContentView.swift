@@ -13,7 +13,7 @@ import simd
 
 struct ContentView: View {
     var body: some View {
-        ZStack {
+        VStack {
             // Image(systemName: "globe")
             //     .imageScale(.large)
             //     .foregroundStyle(.tint)

@@ -78,13 +78,14 @@ struct CameraPreviewView: UIViewRepresentable {
 
 class CameraController: NSObject, ObservableObject {
     @Published var session = AVCaptureSession()
-    @Published var isCentered = false
-    @Published var isSetup = false
+    // @Published var isCentered = false
+    // @Published var isSetup = false
     
     private var deviceInput: AVCaptureDeviceInput?
-    private var photoOutput = AVCapturePhotoOutput()
+    // private var photoOutput = AVCapturePhotoOutput()
     private var videoOutput = AVCaptureVideoDataOutput()
-    let imageAnalyzer = ImageAnalyzer()
+    let frameModel = FrameModel()
+    // let imageAnalyzer = ImageAnalyzer()
     
     override init() {
         super.init()
@@ -151,17 +152,17 @@ class CameraController: NSObject, ObservableObject {
         
         session.outputs.forEach { session.removeOutput($0) }
         
-        if session.canAddOutput(photoOutput) {
-            session.addOutput(photoOutput)
-            if let photoConnection = photoOutput.connection(with: .video) {
-                // Update for iOS 17
-                if #available(iOS 17.0, *) {
-                    photoConnection.videoRotationAngle = 0 // For portrait
-                } else {
-                    photoConnection.videoOrientation = .portrait
-                }
-            }
-        }
+        // if session.canAddOutput(photoOutput) {
+        //     session.addOutput(photoOutput)
+        //     if let photoConnection = photoOutput.connection(with: .video) {
+        //         // Update for iOS 17
+        //         if #available(iOS 17.0, *) {
+        //             photoConnection.videoRotationAngle = 0 // For portrait
+        //         } else {
+        //             photoConnection.videoOrientation = .portrait
+        //         }
+        //     }
+        // }
         
         if session.canAddOutput(videoOutput) {
             session.addOutput(videoOutput)
@@ -182,18 +183,19 @@ class CameraController: NSObject, ObservableObject {
         print("Camera setup completed")
     }
     
-    func capturePhoto() {
-        let settings = AVCapturePhotoSettings()
-        photoOutput.capturePhoto(with: settings, delegate: self)
-    }
+    // func capturePhoto() {
+    //     let settings = AVCapturePhotoSettings()
+    //     photoOutput.capturePhoto(with: settings, delegate: self)
+    // }
     
-    func updateReferenceImages(_ images: [UIImage]) {
-        imageAnalyzer.analyzeReferenceImages(images)
-    }
+    // func updateReferenceImages(_ images: [UIImage]) {
+    //     imageAnalyzer.analyzeReferenceImages(images)
+    // }
 }
 
 // Handle camera capture and face detection
-extension CameraController: AVCapturePhotoCaptureDelegate, AVCaptureVideoDataOutputSampleBufferDelegate {
+// AVCapturePhotoCaptureDelegate,
+extension CameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
     // func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
     //     guard let imageData = photo.fileDataRepresentation() else { return }
     //     guard let image = UIImage(data: imageData) else { return }
@@ -223,28 +225,35 @@ extension CameraController: AVCapturePhotoCaptureDelegate, AVCaptureVideoDataOut
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
         // Force portrait orientation for analysis
-        let imageOrientation: CGImagePropertyOrientation = .right  // This is portrait orientation
+        // let imageOrientation: CGImagePropertyOrientation = .right  // This is portrait orientation
         
-        let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
-                                                 orientation: imageOrientation)
+        // let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
+        //                                          orientation: imageOrientation)
         
-        let faceDetectionRequest = VNDetectFaceRectanglesRequest { [weak self] request, error in
-            guard let observations = request.results as? [VNFaceObservation] else { return }
+        // let faceDetectionRequest = VNDetectFaceRectanglesRequest { [weak self] request, error in
+        //     guard let observations = request.results as? [VNFaceObservation] else { return }
             
-            DispatchQueue.main.async {
-                if let face = observations.first {
-                    let centerX = face.boundingBox.midX
-                    let centerThreshold: CGFloat = 0.1
-                    self?.isCentered = abs(centerX - 0.5) < centerThreshold
-                } else {
-                    self?.isCentered = false
-                }
-            }
-        }
+        //     DispatchQueue.main.async {
+        //         if let face = observations.first {
+        //             let centerX = face.boundingBox.midX
+        //             let centerThreshold: CGFloat = 0.1
+        //             self?.isCentered = abs(centerX - 0.5) < centerThreshold
+        //         } else {
+        //             self?.isCentered = false
+        //         }
+        //     }
+        // }
         
-        try? requestHandler.perform([faceDetectionRequest])
+        // try? requestHandler.perform([faceDetectionRequest])
         
         // Pass the orientation to analyzeLiveFrame
-        imageAnalyzer.analyzeLiveFrame(pixelBuffer, orientation: imageOrientation)
+        DispatchQueue.main.async {
+            self.frameModel.updateCurrentPose(pixelBuffer)
+        }
+
+        // DispatchQueue.main.async { [weak self] in
+        //     self?.guidance = self?.imageAnalyzer.guidance ?? []
+        //     self?.angleDirection = self?.imageAnalyzer.angleDirection
+        // }
     }
 }
