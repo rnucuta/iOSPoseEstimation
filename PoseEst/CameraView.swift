@@ -79,7 +79,7 @@ struct CameraPreviewView: UIViewRepresentable {
 class CameraController: NSObject, ObservableObject {
     @Published var session = AVCaptureSession()
     // @Published var isCentered = false
-    // @Published var isSetup = false
+    @Published var isSetup = false
     
     private var deviceInput: AVCaptureDeviceInput?
     // private var photoOutput = AVCapturePhotoOutput()
@@ -183,10 +183,9 @@ class CameraController: NSObject, ObservableObject {
         print("Camera setup completed")
     }
     
-    // func capturePhoto() {
-    //     let settings = AVCapturePhotoSettings()
-    //     photoOutput.capturePhoto(with: settings, delegate: self)
-    // }
+    func capturePhoto() {
+        frameModel.updateGroundTruth()
+    }
     
     // func updateReferenceImages(_ images: [UIImage]) {
     //     imageAnalyzer.analyzeReferenceImages(images)

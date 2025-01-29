@@ -4,37 +4,43 @@ import CoreVideo
 import UIKit
 
  struct poseEstimations{
-    var xTheta: Float?
-    var yTheta: Float?
-    var zTheta: Float?
-    var distanceFromCam: Float?
-    var.confidence: Float?
+     var xTheta: Float = Float.infinity
+     var yTheta: Float = Float.infinity
+     var zTheta: Float = Float.infinity
+     var distanceFromCam = Float.infinity
+     var confidence: Float? = Float.infinity
 }
 
 class FrameModel: ObservableObject {
 
-    @Published var currentPose = poseEstimations()
-    @Published var groundTruth = poseEstimations()
+    @Published var currentPose  = poseEstimations()
+    @Published var groundTruth  = poseEstimations()
     private var humanObservation: VNHumanBodyPose3DObservation? = nil
     
-    public func updateCurrentPose(_ pixelBuffer: CVPixelBuffer){
-        guard let currentFrame = pixelBufferToCGImage(pixelBuffer: pixelBuffer) else {return}
+    public func updateCurrentPose(_ pixelBuffer: CVPixelBuffer) async{
+        guard let currentFrame = pixelBufferToCGImage(pixelBuffer) else {return}
         await composePoseStruct(currentFrame)
 
-        guard let currentPoseAsset = self.currentPose else {return}
+        if var currentPoseAsset = self.currentPose,
+           let groundTruhAsset = self.groundTruth
+        {
+            currentPoseAsset.
+        }
+            else {return}
+        //if var groun
 
         if let groundTruthAsset = self.groundTruth {
-            self.currentPose.xTheta = self.groundTruth.xTheta - self.currentPose.xTheta
-            self.currentPose.yTheta = self.groundTruth.yTheta - self.currentPose.yTheta
+            self.currentPoseAsset.xTheta = groundTruthAsset.xTheta - currentPoseAsset.xTheta
+            self.currentPose.yTheta = self.groundTruth?.yTheta - self.currentPose.yTheta
             self.currentPose.zTheta = self.groundTruth.zTheta - self.currentPose.zTheta
             self.currentPose.distanceFromCam = self.groundTruth.distanceFromCam - self.currentPose.distanceFromCam
-        }        
+        }
     }
 
-    public func updateGroundTruth(_ pixelBuffer: CVPixelBuffer){
-        guard let currentFrame = pixelBufferToCGImage(pixelBuffer: pixelBuffer) else { return }
-        await composePoseStruct(currentFrame)
-        guard let currentPoseAsset = self.currentPose else {return}
+    public func updateGroundTruth(){
+        //guard let currentFrame = pixelBufferToCGImage(pixelBuffer: pixelBuffer) else { return }
+        //await composePoseStruct(currentFrame)
+        //guard let currentPoseAsset = self.currentPose else {return}
         self.groundTruth.xTheta = self.currentPose.xTheta
         self.groundTruth.yTheta = self.currentPose.yTheta
         self.groundTruth.zTheta = self.currentPose.zTheta
@@ -50,9 +56,9 @@ class FrameModel: ObservableObject {
 
     private func composePoseStruct(_ image: CGImage) async {
         await Task(priority: .userInitiated) {
-            guard let assetImage = image else {
-                return
-            }
+            //guard let assetImage = image else {
+            //    return
+            //}
             let request = VNDetectHumanBodyPose3DRequest()
             let requestHandler = VNImageRequestHandler(cgImage: image)
             do {
@@ -61,7 +67,7 @@ class FrameModel: ObservableObject {
                     Task { @MainActor in
                         self.humanObservation = returnedObservation
 
-                        calculatePoseAngles(observation: self.humanObservation)
+                        calculatePoseAngles(observation: self.humanObservation!)
                     }
                 }
             } catch {
