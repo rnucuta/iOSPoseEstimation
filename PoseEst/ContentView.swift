@@ -6,14 +6,20 @@
 //
 
 import SwiftUI
+import SceneKit
+import UIKit
+import Vision
+import simd
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        ZStack {
+            // Image(systemName: "globe")
+            //     .imageScale(.large)
+            //     .foregroundStyle(.tint)
+            // Text("Hello, world!")
+            CameraView()
+            PoseDataView()
         }
         .padding()
     }
