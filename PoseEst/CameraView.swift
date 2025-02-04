@@ -184,7 +184,7 @@ class CameraController: NSObject, ObservableObject {
     }
     
     func capturePhoto() {
-        frameModel.updateGroundTruth()
+        frameModel.updateCurrentPose()
     }
     
     // func updateReferenceImages(_ images: [UIImage]) {
