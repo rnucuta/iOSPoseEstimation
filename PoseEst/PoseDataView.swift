@@ -1,20 +1,19 @@
 import SwiftUI
 
 struct PoseDataView: View {
-    let currentPose : poseEstimations
-    let groundTruthPose : poseEstimations
-
+    @ObservedObject var frameModel: FrameModel
+    
     var body: some View {
         HStack(alignment: .top, spacing: 20) {
             VStack(alignment: .leading) {
                 Text("Current Pose:")
                     .bold()
                 VStack(alignment: .leading) {
-                    Text("X: \(currentPose.xTheta ?? "NaN")°")
-                    Text("Y: \(currentPose.yTheta ?? "NaN")°")
-                    Text("Z: \(currentPose.zTheta ?? "NaN")°")
-                    Text("Distance: \(currentPose.distanceFromCam ?? "NaN")m")
-                    Text("Confidence: \(currentPose.confidence ?? "NaN")")
+                    Text("X: \(frameModel.currentPose.xTheta, specifier: "%.1f")°")
+                    Text("Y: \(frameModel.currentPose.yTheta, specifier: "%.1f")°")
+                    Text("Z: \(frameModel.currentPose.zTheta, specifier: "%.1f")°")
+                    Text("Distance: \(frameModel.currentPose.distanceFromCam, specifier: "%.2f")m")
+                    Text("Confidence: \(frameModel.currentPose.confidence, specifier: "%.2f")")
                 }
             }
             
@@ -24,11 +23,11 @@ struct PoseDataView: View {
                 Text("Ground Truth:")
                     .bold()
                 VStack(alignment: .leading) {
-                    Text("X: \(groundTruthPose.xTheta ?? "NaN")°")
-                    Text("Y: \(groundTruthPose.yTheta ?? "NaN")°")
-                    Text("Z: \(groundTruthPose.zTheta ?? "NaN")°")
-                    Text("Distance: \(groundTruthPose.distanceFromCam ?? "NaN")m")
-                    Text("Confidence: \(groundTruthPose.Confidence ?? "NaN")")
+                    Text("X: \(frameModel.groundTruth.xTheta, specifier: "%.1f")°")
+                    Text("Y: \(frameModel.groundTruth.yTheta, specifier: "%.1f")°")
+                    Text("Z: \(frameModel.groundTruth.zTheta, specifier: "%.1f")°")
+                    Text("Distance: \(frameModel.groundTruth.distanceFromCam, specifier: "%.2f")m")
+                    Text("Confidence: \(frameModel.groundTruth.confidence, specifier: "%.2f")")
                 }
             }
         }

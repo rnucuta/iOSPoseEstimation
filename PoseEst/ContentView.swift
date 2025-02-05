@@ -12,15 +12,22 @@ import Vision
 import simd
 
 struct ContentView: View {
+    @StateObject private var frameModel : FrameModel
+    @StateObject private var camera: CameraController
+    
+    init() {
+        let fm = FrameModel()
+        _frameModel = StateObject(wrappedValue: fm)
+        _camera = StateObject(wrappedValue: CameraController(fm))
+    }
+    
     var body: some View {
         VStack {
-            // Image(systemName: "globe")
-            //     .imageScale(.large)
-            //     .foregroundStyle(.tint)
-            // Text("Hello, world!")
             CameraView()
-            PoseDataView()
+                .environmentObject(camera)
+            PoseDataView(frameModel: frameModel)
         }
+        .environmentObject(frameModel)
         .padding()
     }
 }

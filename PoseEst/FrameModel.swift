@@ -1,48 +1,88 @@
 import Vision
+import SwiftUICore
 import CoreImage
 import CoreVideo
 import UIKit
 import simd
+import Spatial
 
- struct poseEstimations{
-     var xTheta: Float = Float.infinity
-     var yTheta: Float = Float.infinity
-     var zTheta: Float = Float.infinity
-     var distanceFromCam: Float = Float.infinity
-     var confidence: Float = Float.infinity
+//@MainActor
+//class PoseEstimations: ObservableObject {
+//    @Published var xTheta: Float
+//    @Published var yTheta: Float
+//    @Published var zTheta: Float
+//    @Published var distanceFromCam: Float
+//    @Published var confidence: Float
+//    
+//    init(xTheta: Float = Float.infinity, yTheta: Float = Float.infinity, zTheta: Float = Float.infinity,
+//         distanceFromCam: Float = Float.infinity, confidence: Float = Float.infinity) {
+//        self.xTheta = xTheta
+//        self.yTheta = yTheta
+//        self.zTheta = zTheta
+//        self.distanceFromCam = distanceFromCam
+//        self.confidence = confidence
+//    }
+//}
+
+struct PoseEstimations {
+    var xTheta: Float
+    var yTheta: Float
+    var zTheta: Float
+    var distanceFromCam: Float
+    var confidence: Float
+    
+    init(xTheta: Float = Float.infinity, yTheta: Float = Float.infinity, zTheta: Float = Float.infinity,
+         distanceFromCam: Float = Float.infinity, confidence: Float = Float.infinity) {
+        self.xTheta = xTheta
+        self.yTheta = yTheta
+        self.zTheta = zTheta
+        self.distanceFromCam = distanceFromCam
+        self.confidence = confidence
+    }
 }
 
-class FrameModel: ObservableObject {
 
-    @Published var currentPose : poseEstimations?
-    @Published var groundTruth : poseEstimations?
-    private var humanObservation: VNHumanBodyPose3DObservation? = nil
+@MainActor
+class FrameModel : ObservableObject {
+    @Published var currentPose = PoseEstimations()
+    @Published var groundTruth = PoseEstimations()
+    private var humanObservation: VNHumanBodyPose3DObservation?
     
-    public func updateCurrentPose(_ pixelBuffer: CVPixelBuffer) async{
-        guard let currentFrame = pixelBufferToCGImage(pixelBuffer) else {return}
+//    init(_ cp: PoseEstimations,_ gt: PoseEstimations){
+//        self.currentPose = cp
+//        self.groundTruth = gt
+//        
+//    }
+    
+    public func updateCurrentPose(_ currentFrame: CGImage) async{
+        print("Called update current pose")
         await composePoseStruct(currentFrame)
 
-        if var currentPoseAsset = self.currentPose,
-            let groundTruthAsset = self.groundTruth
-        {
-            currentPoseAsset.xTheta = groundTruthAsset.xTheta - currentPoseAsset.xTheta
-            currentPoseAsset.yTheta = groundTruthAsset.yTheta - currentPoseAsset.yTheta
-            currentPoseAsset.zTheta = groundTruthAsset.zTheta - currentPoseAsset.zTheta
-            currentPoseAsset.distanceFromCam = groundTruthAsset.distanceFromCam - currentPoseAsset.distanceFromCam
-            self.currentPose = currentPoseAsset
-        }
-        else {return}
+//        if var currentPoseAsset = self.currentPose,
+//            let groundTruthAsset = self.groundTruth
+//        {
+//        if currentPose.distanceFromCam != Float.infinity {
+//            currentPose.xTheta = groundTruth.xTheta - currentPose.xTheta
+//            currentPose.yTheta = groundTruth.yTheta - currentPose.yTheta
+//            currentPose.zTheta = groundTruth.zTheta - currentPose.zTheta
+//            currentPose.distanceFromCam = groundTruth.distanceFromCam - currentPose.distanceFromCam
+////            self.currentPose = currentPoseAsset
+//        }
+//        else {return}
     }
 
     public func updateGroundTruth(){
+        print("Called update ground truth")
         //guard let currentFrame = pixelBufferToCGImage(pixelBuffer: pixelBuffer) else { return }
         //await composePoseStruct(currentFrame)
         //guard let currentPoseAsset = self.currentPose else {return}
-        self.groundTruth.xTheta = self.currentPose.xTheta
-        self.groundTruth.yTheta = self.currentPose.yTheta
-        self.groundTruth.zTheta = self.currentPose.zTheta
-        self.groundTruth.distanceFromCam = self.currentPose.distanceFromCam
-        self.groundTruth.confidence = self.currentPose.confidence
+        self.groundTruth = self.currentPose
+        print(self.groundTruth)
+//        self.groundTruth.xTheta = self.currentPose.xTheta
+//        self.groundTruth.yTheta = self.currentPose.yTheta
+//        self.groundTruth.zTheta = self.currentPose.zTheta
+//        self.groundTruth.distanceFromCam = self.currentPose.distanceFromCam
+//        self.groundTruth.confidence = self.currentPose.confidence
     }
 
     private func pixelBufferToCGImage(_ pixelBuffer: CVPixelBuffer) -> CGImage? {
@@ -74,27 +114,35 @@ class FrameModel: ObservableObject {
     }
 
     private func calculatePoseAngles(observation: VNHumanBodyPose3DObservation) {
-        guard let rootJoint = try? observation.recognizedPoint(.centerHead), 
-            cameraMatrix = try? observation.cameraRelativePosition(.centerHead),
-            let CameraPose3d = try? Pose3D(cameraMatrix.inverse),
-                else { return }
+        guard let rootJoint = try? observation.recognizedPoint(.root),
+              let cameraMatrix = try? observation.cameraRelativePosition(.root),
+              let CameraPose3d = Pose3D(cameraMatrix.inverse)
+        else { return }
         
         // Note: published vars must be updated in a main thread
-        Task { @MainActor in
+//        Task { @MainActor in
             
-
-
-            // self.currentPose.xTheta = Float(atan2(rootJoint.z, rootJoint.y))
-            // self.currentPose.yTheta = Float(atan2(rootJoint.x, rootJoint.z))
-            // self.currentPose.zTheta = Float(atan2(rootJoint.y, rootJoint.x))
+            print(CameraPose3d)
+            print(cameraMatrix)
+            print(rootJoint)
             
-            // self.currentPose.distanceFromCam = Float(sqrt(
-            //     pow(rootJoint.x, 2) + 
-            //     pow(rootJoint.y, 2) + 
-            //     pow(rootJoint.z, 2)
-            // ))
-            self.currentPose.confidence = rootJoint.confidence
-        }
+            let eulerAngles = self.extractEulerAngles(from: cameraMatrix)
+            
+            self.currentPose = PoseEstimations(
+                xTheta: eulerAngles.0,
+                yTheta: eulerAngles.1,
+                zTheta: eulerAngles.2,
+                distanceFromCam: Float(sqrt(
+                    pow(CameraPose3d.position.x, 2) +
+                    pow(CameraPose3d.position.y, 2) +
+                    pow(CameraPose3d.position.z, 2)
+                )),
+//                confidence: rootJoint.confidence
+                confidence: 0.5
+            )
+        
+        print(self.currentPose)
+//        }
     }
 
     public func extractEulerAngles(from matrix: simd_float4x4) -> (roll: Float, pitch: Float, yaw: Float) {
@@ -118,9 +166,9 @@ class FrameModel: ObservableObject {
         return (roll, pitch, yaw)
     }
 
-    public func extractDistance(from matrix: simd_float4x4) -> (dist: Float) {
-        
-    }
+//    public func extractDistance(from matrix: simd_float4x4) -> (dist: Float) {
+//        
+//    }
 
     
 }

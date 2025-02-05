@@ -2,11 +2,13 @@ import SwiftUI
 import AVFoundation
 import Vision
 import CoreMotion
+import CoreImage
+import CoreGraphics
 
 struct CameraView: View {
     @EnvironmentObject var camera: CameraController
-    private let motionManager = CMMotionManager()
-    
+//    private let motionManager = CMMotionManager()
+
     var body: some View {
         ZStack {
             // Camera preview
@@ -31,23 +33,23 @@ struct CameraView: View {
             // startMotionUpdates()
         }
         .onDisappear {
-            motionManager.stopDeviceMotionUpdates()
+//            motionManager.stopDeviceMotionUpdates()
             camera.stopSession()
         }
     }
-    
-    private func startMotionUpdates() {
-        if motionManager.isDeviceMotionAvailable {
-            motionManager.deviceMotionUpdateInterval = 0.2
-            motionManager.startDeviceMotionUpdates(to: .main) { motion, error in
-                guard let motion = motion else { return }
-                
-                // Check if phone is level using roll angle
-                // let rollAngle = abs(motion.attitude.roll * 180 / .pi)
-                // isLevelHorizontally = abs(rollAngle) < 3.0 // Consider level if within 3 degrees
-            }
-        }
-    }
+//    
+//    private func startMotionUpdates() {
+//        if motionManager.isDeviceMotionAvailable {
+//            motionManager.deviceMotionUpdateInterval = 0.2
+//            motionManager.startDeviceMotionUpdates(to: .main) { motion, error in
+//                guard let motion = motion else { return }
+//                
+//                // Check if phone is level using roll angle
+//                // let rollAngle = abs(motion.attitude.roll * 180 / .pi)
+//                // isLevelHorizontally = abs(rollAngle) < 3.0 // Consider level if within 3 degrees
+//            }
+//        }
+//    }
 }
 
 struct CameraPreviewView: UIViewRepresentable {
@@ -76,25 +78,24 @@ struct CameraPreviewView: UIViewRepresentable {
 }
 
 
+@MainActor
 class CameraController: NSObject, ObservableObject {
     @Published var session = AVCaptureSession()
-    // @Published var isCentered = false
     @Published var isSetup = false
     
     private var deviceInput: AVCaptureDeviceInput?
-    // private var photoOutput = AVCapturePhotoOutput()
     private var videoOutput = AVCaptureVideoDataOutput()
-    let frameModel = FrameModel()
-    // let imageAnalyzer = ImageAnalyzer()
+    private var frameModel : FrameModel
     
-    override init() {
+    init(_ fm: FrameModel) {
+        self.frameModel = fm
         super.init()
     }
     
-    deinit {
-        stopSession()
-    }
-    
+//    deinit {
+//        stopSession()
+//    }
+//    
     func startSession() {
         guard !session.isRunning else { return }
         DispatchQueue.global(qos: .background).async { [weak self] in
@@ -184,7 +185,7 @@ class CameraController: NSObject, ObservableObject {
     }
     
     func capturePhoto() {
-        frameModel.updateCurrentPose()
+        frameModel.updateGroundTruth()
     }
     
     // func updateReferenceImages(_ images: [UIImage]) {
@@ -221,7 +222,12 @@ extension CameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
     // }
     
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        if let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+           let currentFrame = pixelBufferToCGImage(pixelBuffer){
+            Task {
+                await self.frameModel.updateCurrentPose(currentFrame)
+            }
+        }
         
         // Force portrait orientation for analysis
         // let imageOrientation: CGImagePropertyOrientation = .right  // This is portrait orientation
@@ -246,13 +252,16 @@ extension CameraController: AVCaptureVideoDataOutputSampleBufferDelegate {
         // try? requestHandler.perform([faceDetectionRequest])
         
         // Pass the orientation to analyzeLiveFrame
-        DispatchQueue.main.async {
-            self.frameModel.updateCurrentPose(pixelBuffer)
-        }
 
         // DispatchQueue.main.async { [weak self] in
         //     self?.guidance = self?.imageAnalyzer.guidance ?? []
         //     self?.angleDirection = self?.imageAnalyzer.angleDirection
         // }
+    }
+    private func pixelBufferToCGImage(_ pixelBuffer: CVPixelBuffer) -> CGImage? {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let context = CIContext(options: nil)
+        
+        return context.createCGImage(ciImage, from: ciImage.extent)
     }
 }
