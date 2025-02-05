@@ -163,7 +163,7 @@ class FrameModel : ObservableObject {
             yaw   = 0
         }
 
-        return (roll, pitch, yaw)
+        return (roll * 57.2958, pitch * 57.2958, yaw * 57.2958)
     }
 
 //    public func extractDistance(from matrix: simd_float4x4) -> (dist: Float) {
