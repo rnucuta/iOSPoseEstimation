@@ -22,13 +22,13 @@ struct ContentView: View {
     }
     
     var body: some View {
-        VStack {
+        ZStack {
             CameraView()
                 .environmentObject(camera)
             PoseDataView(frameModel: frameModel)
         }
         .environmentObject(frameModel)
-        .padding()
+        // .padding()
     }
 }
 
