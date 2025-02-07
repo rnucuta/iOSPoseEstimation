@@ -11,34 +11,35 @@ struct PoseDataView: View {
                     Text("Current Pose:")
                         .bold()
                     VStack(alignment: .leading) {
-                        Text("X: \(frameModel.currentPose.roll, specifier: "%.1f")°")
-                        Text("Y: \(frameModel.currentPose.pitch, specifier: "%.1f")°")
-                        Text("Z: \(frameModel.currentPose.yaw, specifier: "%.1f")°")
-                        Text("Distance: \(frameModel.currentPose.distanceFromCam, specifier: "%.2f")m")
+                        Text("X: \(frameModel.currentPoseInstr.roll, specifier: "%.1f")°")
+                        Text("Y: \(frameModel.currentPoseInstr.pitch, specifier: "%.1f")°")
+                        Text("Z: \(frameModel.currentPoseInstr.yaw, specifier: "%.1f")°")
+                        Text("Distance: \(frameModel.currentPoseInstr.distanceFromCam, specifier: "%.2f")m")
                     }
                 }
-                
-                Divider()
-                
+                //
+                //                Divider()
+                //
+                //                VStack(alignment: .leading) {
+                //                    Text("Ground Truth:")
+                //                        .bold()
+                //                    VStack(alignment: .leading) {
+                //                        Text("X: \(frameModel.groundTruth.roll, specifier: "%.1f")°")
+                //                        Text("Y: \(frameModel.groundTruth.pitch, specifier: "%.1f")°")
+                //                        Text("Z: \(frameModel.groundTruth.yaw, specifier: "%.1f")°")
+                //                        Text("Distance: \(frameModel.groundTruth.distanceFromCam, specifier: "%.2f")m")
+                //                    }
+                //                }
+                //            }
                 VStack(alignment: .leading) {
-                    Text("Ground Truth:")
+                    Text("Advice:")
                         .bold()
                     VStack(alignment: .leading) {
-                        Text("X: \(frameModel.groundTruth.roll, specifier: "%.1f")°")
-                        Text("Y: \(frameModel.groundTruth.pitch, specifier: "%.1f")°")
-                        Text("Z: \(frameModel.groundTruth.yaw, specifier: "%.1f")°")
-                        Text("Distance: \(frameModel.groundTruth.distanceFromCam, specifier: "%.2f")m")
+                        Text("Roll: \(getRollText(frameModel.orientations.roll))")
+                        Text("Pitch: \(getPitchText(frameModel.orientations.pitch))")
+                        Text("Yaw: \(getYawText(frameModel.orientations.yaw))")
+                        Text("Distance: \(getDistanceText(frameModel.orientations.distance))")
                     }
-                }
-            }
-            VStack(alignment: .leading) {
-                Text("Advice:")
-                    .bold()
-                VStack(alignment: .leading) {
-                    Text("Roll: \(getRollText(frameModel.orientations.roll))")
-                    Text("Pitch: \(getPitchText(frameModel.orientations.pitch))")
-                    Text("Yaw: \(getYawText(frameModel.orientations.yaw))")
-                    Text("Distance: \(getDistanceText(frameModel.orientations.distance))")
                 }
             }
         }

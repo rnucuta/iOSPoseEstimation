@@ -6,39 +6,6 @@ import UIKit
 import simd
 import Spatial
 
-//@MainActor
-//class PoseEstimations: ObservableObject {
-//    @Published var xTheta: Float
-//    @Published var yTheta: Float
-//    @Published var zTheta: Float
-//    @Published var distanceFromCam: Float
-//    @Published var confidence: Float
-//    
-//    init(xTheta: Float = Float.infinity, yTheta: Float = Float.infinity, zTheta: Float = Float.infinity,
-//         distanceFromCam: Float = Float.infinity, confidence: Float = Float.infinity) {
-//        self.xTheta = xTheta
-//        self.yTheta = yTheta
-//        self.zTheta = zTheta
-//        self.distanceFromCam = distanceFromCam
-//        self.confidence = confidence
-//    }
-//}
-
-struct PoseEstimations {
-    var roll: Float
-    var pitch: Float
-    var yaw: Float
-    var distanceFromCam: Float
-    
-    init(roll: Float = Float.infinity, pitch: Float = Float.infinity, yaw: Float = Float.infinity,
-         distanceFromCam: Float = Float.infinity) {
-        self.roll = roll
-        self.pitch = pitch
-        self.yaw = yaw
-        self.distanceFromCam = distanceFromCam
-    }
-}
-
 enum PitchOrientation {
     case pitchgood
     case lookup
@@ -68,9 +35,9 @@ struct OrientationInstructions {
     var roll: RollOrientation
     var yaw: YawOrientation
     var distance: DistanceOrientation
-    
-    init(roll: RollOrientation = .rollgood, pitch: PitchOrientation = .pitchgood, 
-         yaw : YawOrientation = .yawgood, distance: DistanceOrientation = .distgood) {
+
+    init(roll: RollOrientation = .rollgood, pitch: PitchOrientation = .pitchgood,
+         yaw: YawOrientation = .yawgood, distance: DistanceOrientation = .distgood) {
         self.roll = roll
         self.pitch = pitch
         self.yaw = yaw
@@ -78,57 +45,43 @@ struct OrientationInstructions {
     }
 }
 
+struct PoseEstimations {
+    var roll: Float
+    var pitch: Float
+    var yaw: Float
+    var distanceFromCam: Float
+    
+    init(roll: Float = Float.infinity, pitch: Float = Float.infinity, yaw: Float = Float.infinity,
+         distanceFromCam: Float = Float.infinity) {
+        self.roll = roll
+        self.pitch = pitch
+        self.yaw = yaw
+        self.distanceFromCam = distanceFromCam
+    }
+}
+
 @MainActor
-class FrameModel : ObservableObject {
-    @Published var currentPose = PoseEstimations()
-    @Published var groundTruth = PoseEstimations()
+class FrameModel: ObservableObject {
+    @Published var currentPose: simd_float4x4?
+    var groundTruth: simd_float4x4?
+    @Published var currentPoseInstr = PoseEstimations()
     @Published var orientations = OrientationInstructions()
     public var humanObservation: VNHumanBodyPose3DObservation?
-    
-//    init(_ cp: PoseEstimations,_ gt: PoseEstimations){
-//        self.currentPose = cp
-//        self.groundTruth = gt
-//        
-//    }
-    
-    public func updateCurrentPose(_ currentFrame: CGImage) async{
+
+    public func updateCurrentPose(_ currentFrame: CGImage) async {
         print("Called update current pose")
         await composePoseStruct(currentFrame)
 
-//        if var currentPoseAsset = self.currentPose,
-//            let groundTruthAsset = self.groundTruth
-//        {
-        if groundTruth.distanceFromCam != Float.infinity {
-            self.currentPose = PoseEstimations(
-                roll: groundTruth.roll - currentPose.roll,
-                pitch: groundTruth.pitch - currentPose.pitch,
-                yaw: groundTruth.yaw - currentPose.yaw,
-                distanceFromCam: groundTruth.distanceFromCam - currentPose.distanceFromCam
-            )
-
-            orientations = OrientationInstructions(
-                roll: getRollOrientation(self.currentPose.roll, threshold: 10),
-                pitch: getPitchOrientation(self.currentPose.pitch, threshold: 10),
-                yaw: getYawOrientation(self.currentPose.yaw, threshold: 10),
-                distance: getDistanceOrientation(self.currentPose.distanceFromCam, threshold: 0.3)
-            )
+        if let cP = currentPose, let gT = groundTruth {
+            computeOrientations(currentPose: cP, groundTruth: gT)
         }
-        
-//        print(orientations.distance)
-//        print(orientations.roll)
-//        print(orientations.pitch)
-//        print(orientations.yaw)
     }
 
-    public func updateGroundTruth(){
-        print("Called update ground truth")
-        self.groundTruth = self.currentPose
-    }
-
-    private func pixelBufferToCGImage(_ pixelBuffer: CVPixelBuffer) -> CGImage? {
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        let context = CIContext()
-        return context.createCGImage(ciImage, from: ciImage.extent)
+    public func updateGroundTruth() {
+        if let cP = currentPose {
+            print("Setting ground truth matrix.")
+            groundTruth = cP
+        }
     }
 
     private func composePoseStruct(_ image: CGImage) async {
@@ -136,71 +89,78 @@ class FrameModel : ObservableObject {
             let request = VNDetectHumanBodyPose3DRequest()
             let requestHandler = VNImageRequestHandler(cgImage: image)
             do {
-                try requestHandler.perform([request]) // high memory issue
+                try requestHandler.perform([request])
                 if let returnedObservation = request.results?.first {
                     Task { @MainActor in
                         self.humanObservation = returnedObservation
-
+                        
                         calculatePoseAngles(observation: self.humanObservation!)
+                        
+                        self.currentPose = returnedObservation.cameraOriginMatrix
                     }
                 }
             } catch {
-//                currentPose = PoseEstimations()
                 print("Unable to perform the request: \(error).")
             }
         }.value
     }
-
+    
     private func calculatePoseAngles(observation: VNHumanBodyPose3DObservation) {
         guard let rootJoint = try? observation.recognizedPoint(.root),
               let cameraMatrix = try? observation.cameraRelativePosition(.centerHead).inverse,
               let CameraPose3d = Pose3D(cameraMatrix.inverse)
         else { return }
-        
-        print("frame model???", observation.availableJointNames)
-        // Note: published vars must be updated in a main thread
-//        Task { @MainActor in
-            
-//            print(CameraPose3d)
-//            print(cameraMatrix)
-//            print(rootJoint)
-            
-            let eulerAngles = self.extractEulerAngles(from: cameraMatrix)
-            
-            self.currentPose = PoseEstimations(
-                roll: eulerAngles.0,
-                pitch: eulerAngles.1,
-                yaw: eulerAngles.2,
-                distanceFromCam: self.extractDistance(from: cameraMatrix)
-            )
-        
-//        print(self.currentPose)
-
     }
 
-    public func extractEulerAngles(from matrix: simd_float4x4) -> (roll: Float, pitch: Float, yaw: Float) {
-        let sy = sqrt(matrix.columns.0.x * matrix.columns.0.x + matrix.columns.1.x * matrix.columns.1.x)
-        let singular = sy < 1e-6  // Check for gimbal lock
+    /// Computes the relative transformation from `currentPose` to `groundTruth`
+    private func computeOrientations(currentPose: simd_float4x4, groundTruth: simd_float4x4) {
+        let relativeMatrix = groundTruth * currentPose.inverse
 
-        var roll: Float = 0
-        var pitch: Float = 0
-        var yaw: Float = 0
+        // Extract rotation and translation
+        let (axis, angle) = rotationMatrixToAxisAngle(simd_float3x3(
+            simd_float3(relativeMatrix.columns.0.x, relativeMatrix.columns.0.y, relativeMatrix.columns.0.z),
+            simd_float3(relativeMatrix.columns.1.x, relativeMatrix.columns.1.y, relativeMatrix.columns.1.z),
+            simd_float3(relativeMatrix.columns.2.x, relativeMatrix.columns.2.y, relativeMatrix.columns.3.z)
+        ))
 
-        if !singular {
-            yaw  = atan2(matrix.columns.2.y, matrix.columns.2.z)
-            pitch = atan2(-matrix.columns.2.x, sy)
-            roll = atan2(matrix.columns.1.x, matrix.columns.0.x)
-        } else {
-            yaw  = atan2(-matrix.columns.1.z, matrix.columns.1.y)
-            pitch = atan2(-matrix.columns.2.x, sy)
-            roll = 0
+        let translation = simd_make_float3(
+            relativeMatrix.columns.3.x,
+            relativeMatrix.columns.3.y,
+            relativeMatrix.columns.3.z
+        )
+
+        currentPoseInstr = PoseEstimations(
+            roll: axis.x * angle,
+            pitch: axis.z * angle,
+            yaw: axis.y * angle,
+            distanceFromCam: sqrt(pow(translation.x, 2) + pow(translation.y, 2) + pow(translation.z, 2))
+        )
+        
+        // Update enums
+        orientations.roll = getRollOrientation(axis.x * angle, threshold: 15)
+        orientations.pitch = getPitchOrientation(axis.z * angle, threshold: 15)
+        orientations.yaw = getYawOrientation(axis.y * angle, threshold: 15)
+        orientations.distance = getDistanceOrientation(sqrt(pow(translation.x, 2) + pow(translation.y, 2) + pow(translation.z, 2)), threshold: 0.3)
+
+        print("Updated orientations: \(orientations)")
+    }
+
+    /// Converts a 3x3 rotation matrix to an axis-angle representation
+    private func rotationMatrixToAxisAngle(_ R: simd_float3x3) -> (axis: simd_float3, angle: Float) {
+        print("Deugg", R, R[2,0])
+        let trace = R[0, 0] + R[1, 1] + R[2, 2]
+        let angle = acos((trace - 1) / 2)
+
+        if angle == 0 {
+            return (simd_float3(1, 0, 0), 0) // No rotation needed
         }
 
-        return (roll * 57.2958, pitch * 57.2958, yaw * 57.2958)
-    }
+        let x = R[2, 1] - R[1, 2]
+        let y = R[0, 2] - R[2, 0]
+        let z = R[1, 0] - R[0, 1]
+        let axis = simd_normalize(simd_float3(x, y, z))
 
-    public func extractDistance(from matrix: simd_float4x4) -> Float {
-        return Float(sqrt(pow(matrix.columns.3.x, 2) + pow(matrix.columns.3.y, 2) + pow(matrix.columns.3.z, 2)))
+        return (axis, angle * 57.2958) // Convert to degrees
     }
 
     private func getRollOrientation(_ value: Float, threshold: Float) -> RollOrientation {
@@ -210,7 +170,7 @@ class FrameModel : ObservableObject {
         default: return .rollgood
         }
     }
-    
+
     private func getPitchOrientation(_ value: Float, threshold: Float) -> PitchOrientation {
         switch value {
         case ..<(-threshold): return .lookdown
@@ -218,7 +178,7 @@ class FrameModel : ObservableObject {
         default: return .pitchgood
         }
     }
-    
+
     private func getYawOrientation(_ value: Float, threshold: Float) -> YawOrientation {
         switch value {
         case ..<(-threshold): return .yawright
@@ -226,7 +186,7 @@ class FrameModel : ObservableObject {
         default: return .yawgood
         }
     }
-    
+
     private func getDistanceOrientation(_ value: Float, threshold: Float) -> DistanceOrientation {
         switch value {
         case ..<(-threshold): return .distforward
